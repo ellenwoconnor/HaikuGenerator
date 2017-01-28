@@ -1,5 +1,6 @@
 from random import choice
 from random import shuffle
+import codecs
 import re 
 
 # Goal: Generate Haiku text with Markov Chains
@@ -9,7 +10,6 @@ class HaikuGenerator:
         self.chains = self.make_chains(filenames)
         self.syllable_lookup = self.generate_syllable_counts()
 
-# 1. Read in source text + make a dictionary of Markov chains
     def read_files(self, filenames):
         """Given a list of files, make chains from them."""
 
@@ -19,6 +19,15 @@ class HaikuGenerator:
             text_file = open(filename)
             body = body + text_file.read()
             text_file.close()
+
+        subs = [
+            {'old': '\\xe2\\x80\\x99', 'new': '\''},
+            {'old': '\\xe2\\x80\\x9d', 'new': '\"'},
+            {'old': '\s|\\xc2\\xa0', 'new': ' '}
+        ]
+
+        for sub in subs: 
+            body = re.sub(sub['old'], sub['new'], body)
 
         return body
 
@@ -101,7 +110,7 @@ class HaikuGenerator:
             syllables_left -= word_syllables
 
             if syllables_left == 0:
-                print "Matched at", current_word
+                print "Matched path at", current_word
                 return current_word
 
             if syllables_left < 0:
@@ -113,19 +122,24 @@ class HaikuGenerator:
 
 
     def get_haiku(self, syllable_counts):
+        original_counts = list(syllable_counts)
         seed = self.get_seed(syllable_counts[0])
         syllable_counts[0] -= self.count_syllables(*seed)
         all_lines = []
 
         for line_num, syllables in enumerate(syllable_counts):
             line = self.get_line(seed, syllables)
+
             if not line:
-                print "No matching path found"
-                return
+                print "Retrying..."
+                return self.get_haiku(original_counts)
+
             if line_num == 0: 
                 line = ' '.join(seed) + ' ' + line
+
             all_lines.append(line)
             print "Lines so far: ", all_lines
+
             try:
                 seed = (line.split()[-2], line.split()[-1])
             except IndexError:
