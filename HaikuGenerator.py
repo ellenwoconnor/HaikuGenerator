@@ -1,80 +1,135 @@
+from random import choice
+from random import shuffle
+import re 
+
 # Goal: Generate Haiku text with Markov Chains
 
+class HaikuGenerator:
+    def __init__(self, filenames):
+        self.chains = self.make_chains(filenames)
+        self.syllable_lookup = self.generate_syllable_counts()
+
 # 1. Read in source text + make a dictionary of Markov chains
-def read_files(filenames):
-    """Given a list of files, make chains from them."""
+    def read_files(self, filenames):
+        """Given a list of files, make chains from them."""
 
-    body = ""
+        body = ""
 
-    for filename in filenames:
-        text_file = open(filename)
-        body = body + text_file.read()
-        text_file.close()
+        for filename in filenames:
+            text_file = open(filename)
+            body = body + text_file.read()
+            text_file.close()
 
-    return body
+        return body
 
-def make_chains(text):
-    """Takes input text as string; returns dictionary of markov chains."""
+    def generate_syllable_counts(self):
+        cmu_dictionary = open('cmu_pronunciation_dictionary.txt')
+        syllable_counts = {}
+        for line in cmu_dictionary:
+            try:
+                word, pronunciation = line.split('  ')
+            except ValueError:
+                continue
 
-    chains = {}
+            if '(' not in word:  # Filter out duplicate words
+                syllables = [n for n in pronunciation if n in ['0', '1', '2']]
+                syllable_counts[word.lower()] = len(syllables)
 
-    words = corpus.split()
+        return syllable_counts
 
-    for i in range(len(words) - 2):
-        key = (words[i], words[i + 1])
-        value = words[i + 2]
+    def make_chains(self, filenames):
+        """Takes filenames as input; returns dictionary of markov chains."""
+        corpus = self.read_files(filenames)
+        chains = {}
+        words = corpus.split()
 
-        if key not in chains:
-            chains[key] = []
+        for i in range(len(words) - 2):
+            key = (words[i], words[i + 1])
+            value = words[i + 2]
 
-        chains[key].append(value)
+            if key not in chains:
+                chains[key] = []
 
-    return chains
+            chains[key].append(value)
 
-# Helper: get syll count 
-def count_syll(words):
-    """Get total syllable count for some list of words from CMUdict 
-    e.g. ["I", "bought"] returns 2 
-    In CMUdict, syllable stress is indicated with an integer on the vowel (e.g. AH1/EH2)
-    so you can infer the number of syllables by looking at the number phones that
-    end in an integer.
+        return chains
 
-    TODO"""
+    def count_syllables(self, *words):
+        syllable_count = 0
+        for word in words:
+            word_trimmed = re.sub(r'\W+', '', word)
+            syllable_count += self.syllable_lookup[word_trimmed.lower()]
 
-# 3. Generate text: 
+        return syllable_count
 
-def get_seed(chains):
-    """Select seed at random (constrained to those words appearing at the beginning
-     of a sentence, i.e. starting with a capital letter. Example: ["I", "bought"])
-     and constrained to word combinations with <= 5 syllables ."""
+    def get_seed(self, max_syllables):
+        """Select seed at random (constrained to those words appearing at the beginning
+         of a sentence, i.e. starting with a capital letter. Example: ["I", "bought"])
+         and constrained to word combinations with <= n syllables ."""
+
+        selected_bigram = None
+        sentence_initial_bigrams = [bigram for bigram in self.chains.keys() if bigram[0][0].isupper()]
+
+        while not selected_bigram:
+            first_word, second_word = choice(sentence_initial_bigrams)
+            print "Considering seed: {} {}".format(first_word, second_word)
+            try:
+                bigram_syllable_count = self.count_syllables(first_word, second_word)
+            except KeyError:
+                print "Seed words not found"
+                continue
+
+            if (bigram_syllable_count < max_syllables and 
+                first_word[0].isupper() and
+                self.chains[(first_word, second_word)]):
+                selected_bigram = (first_word, second_word)
+            else:
+                print "Seed words did not meet criteria"
+
+        return selected_bigram
 
 
-def get_lines(words, chains, target_syll):
-    """(run 3 times- first line: 5 syllables, second line: 7 syllables,
-    third line: 5 syllables. Each time the function gets called
-    more words are added to the input.)
+    def get_line(self, bigram, syllables_left):
+        # Get next words
+        shuffle(self.chains[bigram])
+        for current_word in self.chains[bigram]:
+            try:
+                word_syllables = self.count_syllables(current_word)
+            except KeyError:
+                continue
 
-    Args:   list of words (default is random seed generated in 3a), 
-            the number of syllables desired 
-    Returns: a list of words (corresponding to the seed words, or else
-            the haiku lines generated so far, if applicable)"""
+            syllables_left -= word_syllables
 
-    curr_syll = count_syll(words)
-    key = 
-    
-    while curr_syll < target_syll:
+            if syllables_left == 0:
+                print "Matched at", current_word
+                return current_word
 
-        # So long as we haven't already popped off all of the candidate words (?) 
-        if len(chains[(words[-2], words[-1])]) > 0:     
-            # pop a random word from chains[(words[-2], words[-1])] & append it to words
-            curr_syll = count_syll(words)
-        else:
-            # remove the last word from words, chains
-            # update syllable count
+            if syllables_left < 0:
+                return None
 
-    if curr_syll == target_syll:  # base case: we have a complete line 
-        return words  
+            matching_path = self.get_line((bigram[1], current_word), syllables_left)
+            if matching_path:
+                return current_word + ' ' + matching_path
 
-    elif curr_syll > target_syll:
-        # remove the last word from words
-        return get_lines(words, chains) 
+
+    def get_haiku(self, syllable_counts):
+        seed = self.get_seed(syllable_counts[0])
+        syllable_counts[0] -= self.count_syllables(*seed)
+        all_lines = []
+
+        for line_num, syllables in enumerate(syllable_counts):
+            line = self.get_line(seed, syllables)
+            if not line:
+                print "No matching path found"
+                return
+            if line_num == 0: 
+                line = ' '.join(seed) + ' ' + line
+            all_lines.append(line)
+            print "Lines so far: ", all_lines
+            try:
+                seed = (line.split()[-2], line.split()[-1])
+            except IndexError:
+                print "Search terminated; could not get an appropriate seed"
+
+        return all_lines
+
