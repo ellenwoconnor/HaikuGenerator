@@ -35,11 +35,7 @@ class MarkovPoeminator:
         ]
 
         for sub in subs: 
-            re.sub(sub['old'], sub['new'], body)
-
-        # for word in cleaned_text.split():
-        #     if word.isupper():
-        #         cleaned_text = re.sub(word, word.lower(), cleaned_text)
+            body = re.sub(sub['old'], sub['new'], body)
 
         return body
 
@@ -123,8 +119,9 @@ class MarkovPoeminator:
 
     def get_forwards_line(self, chains):
         seed = choice(self.get_bigrams_by_position(0))
+        end_of_line_chars = '!.?;'
         line = [word for word in seed]
-        while seed in chains:
+        while seed in chains and not any(char for char in end_of_line_chars if char in line[-1]):
             next_word = choice(chains[seed])
             line.append(next_word)
             seed = (seed[1], next_word)
@@ -134,7 +131,7 @@ class MarkovPoeminator:
     def get_backwards_line(self, chains, coda):
         seed = self.get_rhyming_seed(coda)
         line = [word for word in seed]
-        while seed in chains:
+        while seed in chains and not line[0][0].isupper():
             previous_word = choice(chains[seed])
             line.insert(0, previous_word)
             seed = (previous_word, seed[0])
@@ -146,21 +143,18 @@ class MarkovPoeminator:
         forwards_chains = self.get_chains(forwards=True)
         backwards_chains = self.get_chains(forwards=False)
 
-        for n in range(number_verses):
+        while len(text) <= number_verses/2:
             first_line = self.get_forwards_line(forwards_chains)
-            print first_line
-            text.append(' '.join(first_line))
-
             last_word = re.sub(r'\W+', '', first_line[-1])
             try:
                 coda = self.pronunciations[last_word.lower()]['rhyming_coda']
             except:
                 print 'Failed to find coda:',  coda, '\nTerminating search'
-                return
+                continue
             rhyming_line = self.get_backwards_line(backwards_chains, coda)
+            text.append(' '.join(first_line))
             text.append(' '.join(rhyming_line))
 
-            print "Completed verse:"
             print ' '.join(first_line)
             print ' '.join(rhyming_line)
 
