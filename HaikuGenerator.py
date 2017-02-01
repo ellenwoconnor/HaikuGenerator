@@ -1,6 +1,5 @@
 from random import choice
 from random import shuffle
-import codecs
 import re 
 
 # Goal: Generate Haiku text with Markov Chains
@@ -147,3 +146,6 @@ class HaikuGenerator:
 
         return all_lines
 
+if __name__ == '__main__':
+    mg = HaikuGenerator(['speeches.txt'])
+    mg.get_haiku([5, 7, 5])
