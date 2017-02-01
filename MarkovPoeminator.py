@@ -3,6 +3,7 @@ from random import shuffle
 import re 
 from collections import defaultdict
 
+
 class MarkovPoeminator:
 
     def __init__(self, filenames, split_sentences=True):
@@ -31,7 +32,8 @@ class MarkovPoeminator:
             {'old': '\"', 'new': ''},
             {'old': '\\xe2\\x80\\x93', 'new': '--'},
             {'old': '\r\n', 'new': ' '},
-            {'old': '\\xe2\\x80\\x9c', 'new': ''}
+            {'old': '\\xe2\\x80\\x9c', 'new': ''},
+            {'old': '_', 'new': ''}
         ]
 
         for sub in subs: 
@@ -97,21 +99,32 @@ class MarkovPoeminator:
                 word = word.lower()
                 pronunciations[word] = {'all_segments': pronunciation.split(),
                                         'number_syllables': len([n for n in pronunciation if n in ['0', '1', '2']]),
-                                        'rhyming_coda': self.get_rhyming_coda(word, pronunciation.split())}
+                                        'rhyming_coda': self.get_long_rhyming_coda(pronunciation.split())}
 
         return pronunciations
 
-    def get_rhyming_coda(self, word, segments):
-        # Ideally the rhyming coda would include everything but the word onset 
-        # e.g. history / mystery - but this might make it impossible to generate anything.
-        # This will count 'terrible' and 'horrible' as rhymes which is not quite right
-        try:
-            last_vowel = max([i for i, segment in enumerate(segments) \
-                              if ('0' in segment or '1' in segment or '2' in segment)])
-        except ValueError:
-            return
+    # def get_rhyming_coda(self, segments):
+    #     # Ideally the rhyming coda would include everything but the word onset 
+    #     # e.g. history / mystery - but this might make it impossible to generate anything.
+    #     # This will count 'terrible' and 'horrible' as rhymes which is not quite right
+    #     try:
+    #         last_vowel = max([i for i, segment in enumerate(segments) \
+    #                           if ('0' in segment or '1' in segment or '2' in segment)])
+    #     except ValueError:
+    #         return
 
-        return ' '.join(segments[last_vowel:])
+    #     return ' '.join(segments[last_vowel:])
+
+    def get_long_rhyming_coda(self, segments):
+        # TODO: refactor this so that get_rhyming_coda takes the length of the rhyming coda
+        # as an argument
+        vowels = [i for i, segment in enumerate(segments) \
+                  if ('0' in segment or '1' in segment or '2' in segment)]
+
+        if len(vowels):
+            rhyme = segments[vowels[-2]:] if len(vowels) > 1 \
+                else segments[vowels[-1]:]
+            return ' '.join(rhyme)
 
     def get_bigrams_by_position(self, start_index):
         """Gets sentence-initial or sentence-final bigrams from the corpus.""" 
@@ -129,7 +142,6 @@ class MarkovPoeminator:
         try:
             coda = self.pronunciations[source_word]['rhyming_coda']
         except:
-            print 'Failed to find coda:',  source_word
             return None
         sentence_final_bigrams = self.get_bigrams_by_position(start_index=-2)
         # This is clunky; figure out a way to stop appending '.' to stuff in so many places
