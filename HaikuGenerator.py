@@ -3,6 +3,7 @@ from random import shuffle
 import re 
 
 # Goal: Generate Haiku text with Markov Chains
+# This should be refactored so as to be a part of MarkovPoeminator
 
 class HaikuGenerator:
     def __init__(self, filenames):
@@ -40,6 +41,8 @@ class HaikuGenerator:
                 continue
 
             if '(' not in word:  # Filter out duplicate words
+                # Syllable stress marks are indicated by numbers 0, 1, 2 on the vowel
+                # The number of stress marks is a proxy for syllable count 
                 syllables = [n for n in pronunciation if n in ['0', '1', '2']]
                 syllable_counts[word.lower()] = len(syllables)
 
@@ -73,7 +76,7 @@ class HaikuGenerator:
     def get_seed(self, max_syllables):
         """Select seed at random (constrained to those words appearing at the beginning
          of a sentence, i.e. starting with a capital letter. Example: ["I", "bought"])
-         and constrained to word combinations with <= n syllables ."""
+         and constrained to word combinations with <= n syllables."""
 
         selected_bigram = None
         sentence_initial_bigrams = [bigram for bigram in self.chains.keys() if bigram[0][0].isupper()]
@@ -96,9 +99,9 @@ class HaikuGenerator:
 
         return selected_bigram
 
-
     def get_line(self, bigram, syllables_left):
         # Get next words
+        print "bigram", bigram, "syllables_left", syllables_left 
         shuffle(self.chains[bigram])
         for current_word in self.chains[bigram]:
             try:
@@ -106,19 +109,17 @@ class HaikuGenerator:
             except KeyError:
                 continue
 
-            syllables_left -= word_syllables
-
-            if syllables_left == 0:
+            if (syllables_left - word_syllables) == 0:
                 print "Matched path at", current_word
                 return current_word
 
-            if syllables_left < 0:
+            if (syllables_left - word_syllables) < 0:
                 return None
 
-            matching_path = self.get_line((bigram[1], current_word), syllables_left)
+            matching_path = self.get_line((bigram[1], current_word),
+                                          (syllables_left-word_syllables))
             if matching_path:
                 return current_word + ' ' + matching_path
-
 
     def get_haiku(self, syllable_counts):
         original_counts = list(syllable_counts)
@@ -147,5 +148,5 @@ class HaikuGenerator:
         return all_lines
 
 if __name__ == '__main__':
-    mg = HaikuGenerator(['speeches.txt'])
+    mg = HaikuGenerator(['speeches.txt', '1984.txt'])
     mg.get_haiku([5, 7, 5])
