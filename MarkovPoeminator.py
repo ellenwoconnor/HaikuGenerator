@@ -229,11 +229,10 @@ class MarkovPoeminator:
         return text
 
     def get_haiku_line(self, bigram, syllables_left):
-        # This happens when the seed is sentence-final
-        # But syllables_left at this point already has the other seed deducted 
+        # If the seed is sentence-final and we are observing sentence boundaries
+        # the path will terminate here... need to explore consequences of this
         if bigram not in self.forwards_chains:
-            target_syllables = self.count_syllables(*bigram)
-            bigram = self.get_seed_by_syllables(target_syllables, exact=True)
+            return None
 
         shuffle(self.forwards_chains[bigram])
 
