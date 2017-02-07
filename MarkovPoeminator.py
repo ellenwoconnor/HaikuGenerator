@@ -209,7 +209,7 @@ class MarkovPoeminator:
 
         return line
 
-    def get_rhyming_verse(self, number_verses=3):
+    def get_rhyming_verse(self, number_verses=2):
         text = []
 
         while len(text) <= number_verses*2:
@@ -280,6 +280,6 @@ class MarkovPoeminator:
 
 
 if __name__ == '__main__':
-    mg = MarkovPoeminator(filenames=['speeches.txt', '1984.txt'], observe_sentence_boundaries=True)
-    #mg.get_rhyming_verse(2)
-    print mg.get_haiku([5, 7, 5])
+    poeminator = MarkovPoeminator(filenames=['speeches.txt', '1984.txt'], observe_sentence_boundaries=True)
+    print poeminator.get_rhyming_verse(2)
+    print poeminator.get_haiku([5, 7, 5])
